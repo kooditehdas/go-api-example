@@ -1,0 +1,6 @@
+/server
+/bin/
+coverage.out
+.factory-out/
+.env
+.DS_Store

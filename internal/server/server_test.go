@@ -1,0 +1,76 @@
+package server
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+// do sends a request to the API handler and returns the recorded response.
+func do(t *testing.T, h http.Handler, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(method, path, nil))
+	return rec
+}
+
+// decode parses a JSON response body into a map.
+func decode(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", ct)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
+	}
+	return body
+}
+
+func TestHealth(t *testing.T) {
+	rec := do(t, New(), http.MethodGet, "/health")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := decode(t, rec)["status"]; got != "ok" {
+		t.Errorf(`body["status"] = %v, want "ok"`, got)
+	}
+}
+
+func TestNotFound(t *testing.T) {
+	tests := []struct {
+		name, method, path string
+	}{
+		{"unknown path", http.MethodGet, "/does-not-exist"},
+		{"unsupported method", http.MethodPost, "/health"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := do(t, New(), tt.method, tt.path)
+
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+			}
+			if got := decode(t, rec)["error"]; got != "Not found" {
+				t.Errorf(`body["error"] = %v, want "Not found"`, got)
+			}
+		})
+	}
+}
+
+func TestPanicBecomesJSON500(t *testing.T) {
+	h := recoverJSON(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panic("boom")
+	}))
+
+	rec := do(t, h, http.MethodGet, "/")
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	if got := decode(t, rec)["error"]; got != "Internal server error" {
+		t.Errorf(`body["error"] = %v, want "Internal server error"`, got)
+	}
+}
