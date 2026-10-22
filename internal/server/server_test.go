@@ -41,16 +41,17 @@ func TestHealth(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	tests := []struct {
-		name, version string
+		name, set, want string
 	}{
-		{"default", "dev"},
-		{"set at build time", "v1.2.3"},
+		// An empty set leaves Version untouched, so this checks the real default.
+		{"default", "", "dev"},
+		{"set at build time", "v1.2.3", "v1.2.3"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.version != Version {
+			if tt.set != "" {
 				orig := Version
-				Version = tt.version
+				Version = tt.set
 				t.Cleanup(func() { Version = orig })
 			}
 
@@ -59,8 +60,8 @@ func TestVersion(t *testing.T) {
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 			}
-			if got := decode(t, rec)["version"]; got != tt.version {
-				t.Errorf(`body["version"] = %v, want %q`, got, tt.version)
+			if got := decode(t, rec)["version"]; got != tt.want {
+				t.Errorf(`body["version"] = %v, want %q`, got, tt.want)
 			}
 		})
 	}
