@@ -7,6 +7,10 @@ A Go HTTP API built with the [Kooditehdas factory](https://github.com/kooditehda
 ```bash
 go run ./cmd/server        # listens on $PORT (default 8080)
 curl localhost:8080/health
+curl localhost:8080/version  # {"version":"dev"} unless set at build time
+
+# Set the version reported by GET /version
+go build -ldflags "-X github.com/kooditehdas/go-api-example/internal/server.Version=v1.2.3" ./cmd/server
 ```
 
 Checks: `golangci-lint run`, `go vet ./...`, `go test -race ./...`, `go build ./...`.

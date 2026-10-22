@@ -39,12 +39,41 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestVersion(t *testing.T) {
+	tests := []struct {
+		name, version string
+	}{
+		{"default", "dev"},
+		{"set at build time", "v1.2.3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.version != Version {
+				orig := Version
+				Version = tt.version
+				t.Cleanup(func() { Version = orig })
+			}
+
+			rec := do(t, New(), http.MethodGet, "/version")
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+			if got := decode(t, rec)["version"]; got != tt.version {
+				t.Errorf(`body["version"] = %v, want %q`, got, tt.version)
+			}
+		})
+	}
+}
+
 func TestNotFound(t *testing.T) {
 	tests := []struct {
 		name, method, path string
 	}{
 		{"unknown path", http.MethodGet, "/does-not-exist"},
 		{"unsupported method", http.MethodPost, "/health"},
+		{"unsupported method on version", http.MethodPost, "/version"},
+		{"delete on version", http.MethodDelete, "/version"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
